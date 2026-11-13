@@ -48,7 +48,7 @@ npx skills add https://github.com/tuoyuan-ai/tuoyuanai-skill --skill tuoyuanai
 
 每位用户使用自己的拓元账户授权 客户端管理授权信息 个人中心的已连接助手可断开连接 项目与素材不会因此删除
 
-原 Skill 的历史标签和已有项目保留 旧教程中的 Access Key 入口现在展示 Plugin 升级说明 新安装请使用上面的浏览器授权流程
+原 Skill 的历史标签和已有项目保留 页面不再提供 Access Key 入口 新安装请使用上面的浏览器授权流程
 
 ## 许可
 
