@@ -1,4 +1,4 @@
 interface:
   display_name: "拓元AI"
-  short_description: "通过独立 Access Key 使用拓元AI云端创作、查询与下载"
+  short_description: "通过浏览器授权连接拓元 AI 完成云端创作 素材上传 查询与下载"
   default_prompt: "Use $tuoyuanai to submit my creative request, check its server-side progress, and retrieve completed results."

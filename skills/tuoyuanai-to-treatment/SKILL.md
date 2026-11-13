@@ -5,7 +5,7 @@ description: 将拓元 AI 已有画布的图片 视频 音频 剧本与故事板
 
 # 拓元导演提案
 
-读取同一插件中的 `../tuoyuanai/SKILL.md` 与 `../tuoyuanai/references/treatment.md` 使用 `../tuoyuanai/scripts/tuoyuanai.py`
+读取同一插件中的 `../tuoyuanai/SKILL.md` 与 `../tuoyuanai/references/treatment.md` 使用 `../tuoyuanai/scripts/export_mcp.py` 通过 MCP 收集当前画布节点和原始下载地址 无需 Access Key
 
 按用户指定的真实项目收集当前已完成资产 查看画面与文字后形成精选的逐页创作阐述 再调用 treatment 命令交付 HTML 素材与 ZIP 先完成内容和排版 不要求用户逐页审批
 

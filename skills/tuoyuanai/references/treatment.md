@@ -1,40 +1,30 @@
-# 从画布生成导演提案
+# 从真实画布制作导演提案
 
-## 资产与创意
+先通过 tuoyuan_sessions 确定用户项目 用 tuoyuan_query 取得该会话信息 再用 tuoyuan_results 读取当前画布 不通过聊天截图猜测素材
 
-优先使用用户指定的项目 通过 `sessions` 查找会话 或直接使用用户提供的会话 ID 同名时列出候选 不替用户选择不确定的作品
+查看用户选定的已完成图片 视频 音频和剧本文字 编排 1 到 30 页中文 16:9 创作提案 每页不超过六个素材 说明应围绕作品的创意 人物 空间 镜头与声音 不能把内部任务字段当成提案文案
 
-读取 `results` 的当前节点及 `query` 中用户已确认的创作决定 查看所选图片 播放关键音视频 阅读剧本与分镜文字 然后编写有导演观点的逐页提案 不把全部素材机械排列 不将未看到的画面描述为已查看
-
-Studio 名称或标识未提供时留空 不从参考作品中提取别人的标识 内容来自用户真实项目 没有完成媒体时保留文字方案或说明待补素材 不默认发起付费生成
-
-## 编辑大纲
-
-在本地创建 UTF-8 JSON 使用实际返回的节点 ID
+对每个选定媒体节点调用 tuoyuan_download_info 得到原始下载 URL 将会话结果 当前 nodes 和对应下载回执保存到本地 JSON
 
 ```json
 {
-  "title": "用户作品名称",
-  "sections": [
-    {"title": "创作方向", "body": "基于当前项目形成的创作阐述", "node_ids": []}
-  ]
+  "session": {"sessionId": 123, "project": {"ref_type": "content_task", "ref_id": 456}, "projectUrl": "/assistant?session=123"},
+  "nodes": [],
+  "downloads": {"789": {"url": "https://your-storage.example/original-media"}}
 }
 ```
 
-支持 1–30 页 每页最多 6 个素材 节点可跨页使用 正文是纯文本 图片 视频 音频和文字节点均可使用 先以 results 中真实 ID 填写 node_ids 不把示例当作用户项目
+示例编号与 URL 仅说明格式 必须使用当前 MCP 的真实回执 下载地址可能短期有效 不将这个文件提交到 Git
 
-建议按项目需要安排封面 创作目标 视觉基调 角色与场景 镜头节奏 分镜 成片与交付页 不强制固定章节 优先精选有代表性的资产 留出标题和阐述空间
+提纲文件格式
 
-```bash
-python3 scripts/tuoyuanai.py treatment SESSION_ID --outline-file ./outline.json --output-dir ./treatment --studio "用户工作室名称"
+```json
+{"title":"作品提案","sections":[{"title":"创意方向","body":"按作品内容撰写的导演阐述","node_ids":[789]}]}
 ```
 
-未提供工作室名称则省略 --studio 输出目录必须为空 避免覆盖用户已有文件 下载默认并发 5 个文件 可用 --workers 与 --max-mb 控制
+```bash
+python scripts/export_mcp.py treatment --receipt-file ./receipt.json --outline-file ./outline.json --output-dir ./treatment
+python scripts/export_mcp.py download --receipt-file ./receipt.json --node-id 789 --output-dir ./outputs
+```
 
-## 交付
-
-产物是 `index.html`、`assets/`、`manifest.json` 和 `treatment.zip` 页面支持键盘左右翻页 使用 ?present=1 可进入固定 16:9 演示视图 视频与音频播放 点击编辑文字可修改内容 保存页面后与 assets 目录一并保留
-
-桌面演示页为 16:9 手机纵向阅读 内页素材等比显示 封面以单张图片铺满画面 不把素材的临时签名地址 账户密钥或完整聊天记录写入分享包 资产下载不完整时只返回部分结果 不生成伪完整提案
-
-交付前在可见浏览器打开 HTML 检查每页布局 图片清晰度 视频与音频可播放 翻页 编辑与保存可用 同时提供 ZIP 和原项目链接
+无需配置平台令牌 Python 3.10+ 即可运行 结果是可翻页并编辑保存的 index.html 原始 assets manifest.json 和 treatment.zip 浏览器验收第一页 末页 文字编辑保存和真实媒体播放 失败下载要单独说明 已下载文件不能删除或覆盖

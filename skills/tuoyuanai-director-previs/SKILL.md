@@ -5,9 +5,9 @@ description: 使用拓元 AI 三维导演流程搭建可编辑的场景 人物�
 
 # 拓元三维导演预演
 
-读取 `../tuoyuanai/SKILL.md` 以及 `../tuoyuanai/references/workflows.md` 使用共享客户端
+读取 `../tuoyuanai/SKILL.md` 以及 `../tuoyuanai/references/workflows.md` 使用已连接的拓元 Remote MCP
 
-先读取 capabilities 复用用户已选项目 素材与剧本 将完整创作要求交给平台三维导演创作方式 `director_3d_video` 不把剧本拆成逐镜头独立请求 不预设固定场景 人物 动作 时长或格数
+先读取 tuoyuan_capabilities 复用用户已选项目 素材与剧本 将完整创作要求交给平台三维导演创作方式 `director_3d_video` 不把剧本拆成逐镜头独立请求 不预设固定场景 人物 动作 时长或格数
 
 先完成场景与摄影机预演 在画布中检查可编辑场景 人物走位和镜头运动 用户要求视频生成时才启用相应媒体权限 只要求图片或预演时不能扩大为付费视频请求
 

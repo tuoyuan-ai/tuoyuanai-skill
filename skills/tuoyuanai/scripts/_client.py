@@ -1,4 +1,4 @@
-"""Dependency-free OpenAPI transport. Credentials are environment-only."""
+"""Credential-free media export transport for current MCP download receipts."""
 from __future__ import annotations
 import json
 import os
@@ -40,57 +40,24 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Client:
-    def __init__(self, *, require_auth=True):
+    def __init__(self):
         self.base = safe_url(os.environ.get("TUOYUANAI_BASE_URL", DEFAULT_BASE).rstrip("/"))
-        p = urllib.parse.urlsplit(self.base)
-        if p.query or p.path not in {"", "/"}:
+        parsed = urllib.parse.urlsplit(self.base)
+        if parsed.query or parsed.path not in {"", "/"}:
             raise SkillError("TUOYUANAI_BASE_URL must be an origin without a path or query.")
-        self.token = os.environ.get("TUOYUANAI_ACCESS_KEY", "").strip()
-        if require_auth and not self.token.startswith("ty_sk_"):
-            raise SkillError("Set TUOYUANAI_ACCESS_KEY to an independent Access Key from the avatar menu → Access Key.")
         self.opener = urllib.request.build_opener(NoRedirect)
 
-    def open(self, method, url, *, body=None, headers=None, auth=False, timeout=60):
+    def open(self, method, url, *, body=None, headers=None, timeout=60):
         safe_url(url)
-        headers = dict(headers or {})
-        if auth:
-            if origin(url) != origin(self.base):
-                raise SkillError("Refusing to send credentials to another origin.")
-            headers["Authorization"] = "Bearer " + self.token
-        req = urllib.request.Request(url, data=body, headers=headers, method=method)
+        if any(name.lower() in {"authorization", "cookie"} for name in (headers or {})):
+            raise SkillError("Media exports do not accept platform credentials.")
+        request = urllib.request.Request(url, data=body, headers=dict(headers or {}), method=method)
         try:
-            return self.opener.open(req, timeout=timeout)
+            return self.opener.open(request, timeout=timeout)
         except urllib.error.HTTPError as exc:
-            try:
-                error = json.loads(exc.read(8192))
-                detail = error.get("error") or error.get("detail") or "Request rejected."
-                if not isinstance(detail, str):
-                    detail = "Request fields are invalid."
-            except (ValueError, AttributeError):
-                detail = "OpenAPI unavailable or unexpected response; no alternative endpoint was attempted."
-            raise SkillError(f"HTTP {exc.code}: {(detail.replace(self.token, '[redacted]') if self.token else detail)[:800]}", retryable=exc.code in {408, 429, 500, 502, 503, 504}) from None
+            raise SkillError(f"Media download returned HTTP {exc.code}; obtain a current download receipt from MCP.") from None
         except (urllib.error.URLError, TimeoutError, OSError):
-            raise SkillError("Connection failed. A submitted request may still run. Query the session or reuse the same request ID and body; do not create a new generation request blindly.", retryable=True) from None
-
-    def request(self, method, path, body=None, *, timeout=60):
-        if not path.startswith("/") or path.startswith("//"):
-            raise SkillError("API paths must be relative to /openapi.")
-        encoded = json.dumps(body, ensure_ascii=False).encode() if body is not None else None
-        with self.open(method, self.base + "/openapi" + path, body=encoded,
-                       headers={"Content-Type": "application/json"}, auth=True, timeout=timeout) as response:
-            try:
-                envelope = json.load(response)
-            except ValueError:
-                raise SkillError("OpenAPI returned a non-JSON response. This server needs the OpenAPI platform release.") from None
-        if not isinstance(envelope, dict) or envelope.get("success") is not True or "data" not in envelope:
-            raise SkillError("Unexpected OpenAPI response; no alternative endpoint was attempted.")
-        return envelope["data"]
-
-    def session(self, session_id, *, after_seq=0, limit=100):
-        return self.request("GET", f"/session/{session_id}?afterSeq={after_seq}&limit={limit}")
-
-    def canvas(self, session):
-        return self.request("GET", f'/session/{session["sessionId"]}/results')
+            raise SkillError("Media download could not complete; successful files are preserved.") from None
 
     def links(self, session):
         return {"session_id": session["sessionId"], "project": session["project"],

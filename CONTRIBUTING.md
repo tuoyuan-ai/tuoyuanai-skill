@@ -1,6 +1,6 @@
 # Contributing
 
-Keep this repository a thin client of TuoyuanAI's current canonical API.
+Keep this repository a Plugin for TuoyuanAI's current canonical MCP and API.
 Do not copy platform-private source, provider secrets, customer data or acceptance accounts.
 Do not add old-protocol adapters, automatic paid retries, global project rebinding or example-specific behavior.
 
@@ -8,7 +8,7 @@ Discuss API changes before implementing them. Document any change in permissions
 Use only Python's standard library unless a new dependency is clearly justified.
 
 Acceptance must use a complete platform deployment and a visible Playwright browser
-(`headless=false`) to verify CLI actions appear on the same user's canvas and survive reload.
+(`headless=false`) to verify MCP actions appear on the same user's canvas and survive reload.
 Use isolated acceptance accounts; never turn local test data into claims about production data.
 Do not submit video generation during acceptance without explicit authorization; use the platform's
 mock video provider if that workflow needs coverage. Record exactly which paths were exercised and
