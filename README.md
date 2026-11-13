@@ -15,7 +15,7 @@
 预览版本按发布标签安装：
 
 ```bash
-npx skills add https://github.com/arbitrarystone/tuoyuanai-skills/tree/v0.2.0-rc.1 --skill tuoyuanai
+npx skills add https://github.com/tuoyuan-ai/tuoyuanai-skill/tree/v0.2.0-rc.1 --skill tuoyuanai
 ```
 
 也可以下载本预览版 ZIP，将 `skills/tuoyuanai` 放入你的助手支持的 Skill 目录。
