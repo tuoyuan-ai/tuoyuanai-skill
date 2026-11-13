@@ -1,8 +1,11 @@
 {
   "name": "tuoyuanai",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.3",
   "description": "在 AI 助手中连接拓元创作平台 完成图像 视频 分镜与素材创作",
-  "author": { "name": "拓元 AI", "url": "https://tuoyuanai.com" },
+  "author": {
+    "name": "拓元 AI",
+    "url": "https://tuoyuanai.com"
+  },
   "homepage": "https://tuoyuanai.com/plugin",
   "repository": "https://github.com/tuoyuan-ai/tuoyuanai-skill",
   "license": "MIT",
@@ -13,10 +16,17 @@
     "longDescription": "用自然语言发起创作 上传参考素材 选择平台可用模型 在同一项目中继续修改 查看进度并批量下载完成的成果",
     "developerName": "拓元 AI",
     "category": "Creativity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://tuoyuanai.com",
     "logo": "./assets/tuoyuanai.svg",
     "composerIcon": "./assets/tuoyuanai.svg",
-    "defaultPrompt": ["用拓元根据我的参考素材创作图片", "用拓元整理创意方向并规划故事板", "继续我在拓元中的创作并下载完成的结果"]
+    "defaultPrompt": [
+      "用拓元根据我的参考素材创作图片",
+      "用拓元整理创意方向并规划故事板",
+      "继续我在拓元中的创作并下载完成的结果"
+    ]
   }
 }

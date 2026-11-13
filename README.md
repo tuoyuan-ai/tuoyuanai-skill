@@ -99,11 +99,12 @@ python3 scripts/tuoyuanai.py upload SESSION_ID ./reference.png
 python3 scripts/tuoyuanai.py send SESSION_ID --message-file ./brief.txt --attachment-id ATTACHMENT_ID --allow-media
 ```
 
-多个参考文件分别上传，重复 `--attachment-id` 传入实际附件 ID。支持格式与限额以平台为准，客户端单文件上限为 100 MiB。
+多个参考文件分别上传，重复 `--attachment-id` 传入实际附件 ID。支持格式与限额以平台为准，配套平台支持 PNG/JPG/WebP 图片 10 MiB、PDF/DOCX/TXT/MD 文档 30 MiB、MP4/MOV/WebM 视频 200 MiB、MP3/WAV/M4A/AAC/OGG/FLAC 音频 50 MiB；具体以服务器受理结果为准。
 
 ### 继续修改或新建项目
 
 ```bash
+python3 scripts/tuoyuanai.py sessions
 python3 scripts/tuoyuanai.py send SESSION_ID --message-file ./revision.txt
 python3 scripts/tuoyuanai.py create
 ```
@@ -119,9 +120,20 @@ python3 scripts/tuoyuanai.py download SESSION_ID --node-id NODE_ID --node-id ANO
 python3 scripts/tuoyuanai.py stop SESSION_ID
 ```
 
-完成后 Agent 自动下载本次成果并提供结果文件和项目链接。省略 `--node-id` 可以导出当前画布全部完成节点，包含可能存在的参考素材与旧版本。下载不覆盖已有文件。
+完成后 Agent 自动下载本次成果并提供结果文件和项目链接。省略 `--node-id` 可以导出当前画布全部完成节点，包含可能存在的参考素材与旧版本。下载默认并发 5 个文件，最多 8 个，可用 `--workers` 调整；默认保存到 `~/Downloads/tuoyuanai_results`，可用 `--prefix` 加文件名前缀。下载不覆盖已有文件，单个失败不丢弃其他成功文件，部分成功返回 `partial` 并以退出码 2 结束。
 
 等待超时不会取消后台任务，结果 URL 出现也不等于整个任务已完成。按服务端状态交付，未完成部分如实说明。网络中断时保留原请求 ID，不以新请求重复提交付费生成。
+
+### 直接下载与导演提案
+
+```bash
+python3 scripts/tuoyuanai.py download --urls HTTPS_MEDIA_URL HTTPS_MEDIA_URL --prefix campaign- --workers 5
+python3 scripts/tuoyuanai.py treatment SESSION_ID --outline-file ./outline.json --output-dir ./treatment
+```
+
+直接下载用户指定的素材 URL 不需要 Access Key，不发送账户凭据。导演提案从当前画布读取真实节点，按已编写的提案大纲导出 16:9 HTML、素材目录和 ZIP，支持翻页、本地音视频播放、编辑文字与保存修改。不会为了提案重新生成媒体，也不会把临时签名 URL 写入交付包。
+
+大纲格式与完整步骤见 [导演提案](skills/tuoyuanai/references/treatment.md)。原生 Plugin 同时提供 `tuoyuanai-to-treatment` 和 `tuoyuanai-director-previs` 场景技能。
 
 ## 工作流与接口
 
@@ -130,7 +142,7 @@ python3 scripts/tuoyuanai.py stop SESSION_ID
 - [API 契约](skills/tuoyuanai/references/api.md)：受理、进度、上传、下载和停止
 - [当前边界](KNOWN_LIMITATIONS.md) · [安全说明](SECURITY.md)
 
-本次对齐 LibTV Skill 的自然语言会话、上传、项目隔离、增量查询及批量下载体验，使用拓元自己的 API 与权限体系。LibTV 的 Remote MCP、OAuth、Blender 工具与独立演奏工具不属于本仓库提供的服务。
+核心 Skill 已提供自然语言会话、会话列表与切换、图片／视频／音频上传、增量查询、并发批量下载和导演提案 HTML 导出。三维预演使用拓元已有的可编辑导演流程。连接方式仍是独立 Access Key；LibTV 的 Remote MCP／OAuth、Blender 运行环境和 Zen Piano 演奏服务不由本仓库提供。
 
 ## 开源范围
 

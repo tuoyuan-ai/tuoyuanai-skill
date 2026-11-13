@@ -1,8 +1,11 @@
 {
   "name": "tuoyuanai",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.3",
   "description": "连接拓元 AI 创作图像 视频和分镜 上传素材 查询进度并下载成果",
-  "author": { "name": "拓元 AI", "url": "https://tuoyuanai.com" },
+  "author": {
+    "name": "拓元 AI",
+    "url": "https://tuoyuanai.com"
+  },
   "homepage": "https://tuoyuanai.com/plugin",
   "repository": "https://github.com/tuoyuan-ai/tuoyuanai-skill",
   "license": "MIT"

@@ -10,7 +10,9 @@ DEFAULT_BASE = "https://tuoyuanai.com"
 
 
 class SkillError(Exception):
-    pass
+    def __init__(self, message, *, retryable=False):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 def emit(value, *, stream=None):
@@ -38,14 +40,14 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, *, require_auth=True):
         self.base = safe_url(os.environ.get("TUOYUANAI_BASE_URL", DEFAULT_BASE).rstrip("/"))
         p = urllib.parse.urlsplit(self.base)
         if p.query or p.path not in {"", "/"}:
             raise SkillError("TUOYUANAI_BASE_URL must be an origin without a path or query.")
         self.token = os.environ.get("TUOYUANAI_ACCESS_KEY", "").strip()
-        if not self.token.startswith("ty_sk_"):
-            raise SkillError("Set TUOYUANAI_ACCESS_KEY to an independent Access Key from your personal center.")
+        if require_auth and not self.token.startswith("ty_sk_"):
+            raise SkillError("Set TUOYUANAI_ACCESS_KEY to an independent Access Key from the avatar menu → Access Key.")
         self.opener = urllib.request.build_opener(NoRedirect)
 
     def open(self, method, url, *, body=None, headers=None, auth=False, timeout=60):
@@ -66,16 +68,16 @@ class Client:
                     detail = "Request fields are invalid."
             except (ValueError, AttributeError):
                 detail = "OpenAPI unavailable or unexpected response; no alternative endpoint was attempted."
-            raise SkillError(f"HTTP {exc.code}: {detail.replace(self.token, '[redacted]')[:800]}") from None
+            raise SkillError(f"HTTP {exc.code}: {(detail.replace(self.token, '[redacted]') if self.token else detail)[:800]}", retryable=exc.code in {408, 429, 500, 502, 503, 504}) from None
         except (urllib.error.URLError, TimeoutError, OSError):
-            raise SkillError("Connection failed. A submitted request may still run. Query the session or reuse the same request ID and body; do not create a new generation request blindly.") from None
+            raise SkillError("Connection failed. A submitted request may still run. Query the session or reuse the same request ID and body; do not create a new generation request blindly.", retryable=True) from None
 
-    def request(self, method, path, body=None):
+    def request(self, method, path, body=None, *, timeout=60):
         if not path.startswith("/") or path.startswith("//"):
             raise SkillError("API paths must be relative to /openapi.")
         encoded = json.dumps(body, ensure_ascii=False).encode() if body is not None else None
         with self.open(method, self.base + "/openapi" + path, body=encoded,
-                       headers={"Content-Type": "application/json"}, auth=True) as response:
+                       headers={"Content-Type": "application/json"}, auth=True, timeout=timeout) as response:
             try:
                 envelope = json.load(response)
             except ValueError:

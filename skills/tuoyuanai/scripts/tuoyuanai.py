@@ -11,6 +11,8 @@ import time
 import urllib.parse
 import uuid
 from _client import Client, SkillError, emit, safe_url
+from _downloads import download_items
+from _treatment import build_treatment
 
 
 def positive(value):
@@ -75,9 +77,9 @@ def upload(client, args):
     if not path.is_file():
         raise SkillError("Upload path must be a regular file.")
     size = path.stat().st_size
-    if not 0 < size <= 100 * 1024 * 1024:
-        raise SkillError("Files must be nonempty and at most 100 MiB; server purpose limits also apply.")
-    content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    if not 0 < size <= 200 * 1024 * 1024:
+        raise SkillError("Files must be nonempty and at most 200 MiB; server purpose limits also apply.")
+    content_type = args.content_type or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     client.session(args.session_id)
     prepared = client.request("POST", "/uploads", {
         "purpose": "assistant_attachment", "filename": path.name,
@@ -87,18 +89,55 @@ def upload(client, args):
     emit({"type": "upload_prepared", "upload_id": prepared["upload_id"]})
     if prepared["method"] != "PUT":
         raise SkillError("Unsupported upload method.")
-    if prepared["transport"] == "api":
-        relative = prepared["url"]
-        if not relative.startswith("/openapi/uploads/"):
-            raise SkillError("Unexpected API upload path.")
-        url, auth = client.base + relative, True
-    elif prepared["transport"] == "direct":
-        url, auth = prepared["url"], False
+    if prepared["transport"] == "multipart":
+        part_size = prepared.get("part_size")
+        if type(part_size) is not int or not 1024 * 1024 <= part_size <= 16 * 1024 * 1024:
+            raise SkillError("Unsupported multipart size.")
+        parts, deadline = [], time.monotonic() + 600
+        with path.open("rb") as payload:
+            number = 0
+            while block := payload.read(part_size):
+                number += 1
+                for attempt in range(3):
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise SkillError("Multipart upload reached its ten-minute limit; use cancel-upload with the returned upload_id.")
+                    try:
+                        target = client.request("POST", f'/uploads/{prepared["upload_id"]}/parts/{number}', {}, timeout=min(60, remaining))
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise SkillError("Multipart upload reached its ten-minute limit.")
+                        with client.open("PUT", target["url"], body=block,
+                                         headers={**target.get("headers", {}), "Content-Length": str(len(block))},
+                                         timeout=min(60, remaining)) as response:
+                            etag = response.headers.get("ETag")
+                        if not etag:
+                            raise SkillError("Object storage did not acknowledge the uploaded part.")
+                        parts.append({"part_number": number, "etag": etag})
+                        emit({"type": "upload_progress", "part": number, "bytes": min(number * part_size, size), "total_bytes": size})
+                        break
+                    except SkillError as error:
+                        if not error.retryable or attempt == 2:
+                            raise
+                        time.sleep(min(2 ** attempt, max(0, deadline - time.monotonic())))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise SkillError("Multipart upload reached its ten-minute limit.")
+        client.request("POST", f'/uploads/{prepared["upload_id"]}/complete', {"parts": parts}, timeout=min(60, remaining))
     else:
-        raise SkillError("Unsupported upload transport.")
-    with client.open("PUT", url, body=path.read_bytes(), headers=prepared["headers"],
-                     auth=auth, timeout=120):
-        pass
+        if prepared["transport"] == "api":
+            relative = prepared["url"]
+            if not relative.startswith("/openapi/uploads/"):
+                raise SkillError("Unexpected API upload path.")
+            url, auth = client.base + relative, True
+        elif prepared["transport"] == "direct":
+            url, auth = prepared["url"], False
+        else:
+            raise SkillError("Unsupported upload transport.")
+        with path.open("rb") as payload:
+            with client.open("PUT", url, body=payload, headers={**prepared["headers"], "Content-Length": str(size)},
+                             auth=auth, timeout=120):
+                pass
     result = client.request("POST", "/attachments", {
         "session_id": args.session_id, "upload_id": prepared["upload_id"],
     })
@@ -123,72 +162,43 @@ def exportable(node):
 
 
 def download(client, args):
-    session = client.session(args.session_id)
-    items = results(client, session)["nodes"]
-    if args.node_id:
-        requested = set(args.node_id)
-        items = [node for node in items if node["id"] in requested]
-        if {node["id"] for node in items} != requested:
-            raise SkillError("One or more requested nodes do not belong to this canvas.")
-        if any(not exportable(node) for node in items):
-            raise SkillError("Requested nodes are not complete; no files were downloaded.")
+    if bool(args.session_id) == bool(args.urls):
+        raise SkillError("Provide either a session ID or --urls.")
+    if args.urls:
+        if args.node_id:
+            raise SkillError("--node-id requires a session ID.")
+        if len(args.urls) > 200:
+            raise SkillError("At most 200 URLs per download request.")
+        items = [{"index": index, "url": safe_url(url)} for index, url in enumerate(dict.fromkeys(args.urls), 1)]
+        links = {}
     else:
-        items = [node for node in items if exportable(node)]
+        session = client.session(args.session_id)
+        items = results(client, session)["nodes"]
+        if args.node_id:
+            requested = set(args.node_id)
+            items = [node for node in items if node["id"] in requested]
+            if {node["id"] for node in items} != requested:
+                raise SkillError("One or more requested nodes do not belong to this canvas.")
+            if any(not exportable(node) for node in items):
+                raise SkillError("Requested nodes are not complete; no files were downloaded.")
+        else:
+            items = [node for node in items if exportable(node)]
+        links = client.links(session)
     if not items:
         raise SkillError("No completed output nodes in this canvas.")
-    directory = Path(args.output_dir).expanduser().resolve()
-    directory.mkdir(parents=True, exist_ok=True)
-    downloaded = []
-    for node in items:
-        if node["node_type"] == "text":
-            if not node["body"]:
-                continue
-            destination = directory / f'node-{node["id"]}.txt'
-            with destination.open("x", encoding="utf-8") as handle:
-                handle.write(node["body"])
-        else:
-            media = client.request("GET", f'/session/{args.session_id}/nodes/{node["id"]}/download')
-            url = media["url"]
-            if not url:
-                raise SkillError(f'Node {node["id"]} has no current media URL.')
-            url = safe_url(urllib.parse.urljoin(client.base + "/", url))
-            # No platform Authorization header, including for external signed object URLs.
-            with client.open("GET", url, timeout=120) as response:
-                content_type = response.headers.get_content_type()
-                expected = node["node_type"] + "/"
-                if not content_type.startswith(expected) and content_type != "application/octet-stream":
-                    raise SkillError("Download did not return the expected media type.")
-                extension = mimetypes.guess_extension(node["mime_type"] or content_type) or ".bin"
-                destination = directory / f'node-{node["id"]}{extension}'
-                try:
-                    handle = destination.open("xb")
-                except FileExistsError:
-                    raise SkillError(f"Output already exists: {destination}; choose another directory.") from None
-                try:
-                    with handle:
-                        total = 0
-                        while chunk := response.read(1024 * 1024):
-                            total += len(chunk)
-                            if total > args.max_mb * 1024 * 1024:
-                                raise SkillError("Download exceeded --max-mb.")
-                            handle.write(chunk)
-                        expected_length = response.headers.get("Content-Length")
-                        if total == 0 or (expected_length is not None and total != int(expected_length)):
-                            raise SkillError("Download was empty or incomplete.")
-                except BaseException:
-                    destination.unlink(missing_ok=True)
-                    raise
-        downloaded.append(str(destination))
-        emit({"type": "downloaded", "node_id": node["id"], "path": str(destination)})
-    emit({"type": "complete", "downloaded": downloaded, **client.links(session)})
-
-
+    outcome = download_items(client, items, args, emit)
+    emit({**outcome, **links})
+    if outcome["failed"]:
+        raise SystemExit(2)
 
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("capabilities")
+    s = sub.add_parser("sessions")
+    s.add_argument("--before-id", type=positive)
+    s.add_argument("--limit", type=positive, default=50)
     for cmd in ("create", "send"):
         s = sub.add_parser(cmd)
         if cmd == "send":
@@ -209,15 +219,26 @@ def parser():
     s = sub.add_parser("upload")
     s.add_argument("session_id", type=positive)
     s.add_argument("path")
+    s.add_argument("--content-type", help="Explicit MIME type, for example audio/webm for an audio-only WebM.")
     for cmd in ("attachments", "results", "stop"):
         s = sub.add_parser(cmd)
         s.add_argument("session_id", type=positive)
     s = sub.add_parser("cancel-upload")
     s.add_argument("upload_id", type=uuid.UUID)
-    s = sub.add_parser("download")
+    s = sub.add_parser("treatment")
     s.add_argument("session_id", type=positive)
-    s.add_argument("--node-id", action="append", type=positive)
+    s.add_argument("--outline-file", required=True)
     s.add_argument("--output-dir", required=True)
+    s.add_argument("--studio", default="")
+    s.add_argument("--workers", type=int, choices=range(1, 9), default=5, metavar="1..8")
+    s.add_argument("--max-mb", type=positive, default=512)
+    s = sub.add_parser("download")
+    s.add_argument("session_id", type=positive, nargs="?")
+    s.add_argument("--urls", nargs="+")
+    s.add_argument("--node-id", action="append", type=positive)
+    s.add_argument("--output-dir", default="~/Downloads/tuoyuanai_results")
+    s.add_argument("--prefix", default="")
+    s.add_argument("--workers", type=int, choices=range(1, 9), default=5, metavar="1..8")
     s.add_argument("--max-mb", type=positive, default=512)
     return p
 
@@ -228,11 +249,23 @@ def main():
             stream.reconfigure(encoding="utf-8")
     args = parser().parse_args()
     try:
-        client = Client()
+        client = Client(require_auth=not (args.command == "download" and args.urls and not args.session_id))
         if args.command in {"create", "send"}:
             submit(client, args)
         elif args.command in {"query", "upload", "download"}:
             {"query": query, "upload": upload, "download": download}[args.command](client, args)
+        elif args.command == "treatment":
+            session = client.session(args.session_id)
+            nodes = [node for node in results(client, session)["nodes"] if exportable(node)]
+            result = build_treatment(client, session, nodes, args)
+            emit(result)
+            if result["type"] != "complete":
+                raise SystemExit(2)
+        elif args.command == "sessions":
+            params = {"limit": args.limit}
+            if args.before_id:
+                params["beforeId"] = args.before_id
+            emit(client.request("GET", "/sessions?" + urllib.parse.urlencode(params)))
         elif args.command == "results":
             emit(results(client, client.session(args.session_id)))
         else:

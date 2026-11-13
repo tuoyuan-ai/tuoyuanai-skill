@@ -25,7 +25,7 @@ python3 scripts/tuoyuanai.py attachments SESSION_ID
 python3 scripts/tuoyuanai.py send SESSION_ID --message-file ./brief.txt --attachment-id ATTACHMENT_ID --allow-media
 ```
 
-不要上传不相关的本地文件。上传限额与格式以平台返回为准，客户端单文件上限为 100 MiB。平台附件 ID 仅能用于所属会话，不要照搬其他平台的 OSS 地址或上传接口。
+不要上传不相关的本地文件。上传限额与格式以平台返回为准，客户端单文件上限为 200 MiB。平台附件 ID 仅能用于所属会话，不要照搬其他平台的 OSS 地址或上传接口。
 
 ## 连续场景与分镜
 
@@ -71,3 +71,19 @@ python3 scripts/tuoyuanai.py download SESSION_ID --node-id NODE_ID --output-dir 
 查询遇到临时网络故障可在当前等待期限内再次读取。写请求的回执不确定时先查已知会话；只能用同一请求 ID 和同一正文恢复原请求，不生成新 ID 重复提交付费任务。
 
 缺少密钥、权限不足、余额不足、上传失败或模型不可用时，说明具体阻塞与已保留的会话。用户明确停止才执行 `stop SESSION_ID`；关闭客户端不代表停止创作。
+
+## 三维预演与连续镜头
+
+先读取 capabilities 与用户当前项目的设置 需要三维导演预演时使用平台当前支持的 `creative_method=director_3d_video` 以完整剧本和用户的摄影机要求提交 不固定场景 模型 秒数或格数
+
+先完成可编辑场景和运镜预演 再按用户授权继续视频生成 实际场景 摄影机与人物走位由服务端导演流程创建 不能把静态图当成已完成预演 也不声称已使用 Blender
+
+## 音乐驱动创作
+
+用户已有录音或配乐时先上传音频 明确它是贯穿成片的主音轨 还是角色音色参考 在同一会话传入附件 ID 和完整创作要求 由导演流程按音乐与叙事节拍安排连续镜头 不机械等分 不固定每段时长
+
+如果用户要求演奏或作曲且当前助手拥有对应工具 先按用户授权完成实际音乐素材 再上传拓元 没有演奏工具时只说明缺项 不把文字描述说成已演奏的音频 不默认调用第三方付费服务
+
+## 可编辑导演提案
+
+使用 [treatment.md](treatment.md) 编写逐页大纲并执行 treatment 命令 交付 index.html、assets 与 ZIP 仅包含用户选择的真实素材 与生成任务分开执行
