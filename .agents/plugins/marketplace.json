@@ -1,0 +1,12 @@
+{
+  "name": "tuoyuanai",
+  "interface": { "displayName": "拓元 AI" },
+  "plugins": [
+    {
+      "name": "tuoyuanai",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Creativity"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "name": "tuoyuanai",
+  "owner": { "name": "拓元 AI" },
+  "plugins": [{ "name": "tuoyuanai", "source": "./", "description": "拓元 AI 云端创作与素材工作流" }]
+}

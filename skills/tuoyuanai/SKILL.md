@@ -1,17 +1,25 @@
 ---
 name: tuoyuanai
-description: Use TuoyuanAI to create or continue cloud creative sessions, upload reference materials, query progress, and download generated writing, images, storyboards, or authorized video and audio outputs.
+description: 使用拓元 AI 创作与修改图像 视频 剧本和故事板 上传参考素材 继续已有项目 查询进度并批量下载成果 适用于用户要求用拓元创作 产品广告 多场景分镜 角色或风格参考及素材提案
+metadata:
+  openclaw:
+    requires:
+      bins: [python3]
+      env: [TUOYUANAI_ACCESS_KEY]
+    primaryEnv: TUOYUANAI_ACCESS_KEY
 ---
 
 # 拓元AI
 
-通过拓元AI平台上的创作 Agent 完成用户需求。Python 只是 HTTP 客户端；理解需求、规划、生成和会话持久化均在服务器。不要在本地另做编排，也不需要浏览器登录态或本地 session 文件。
+通过拓元 AI 平台上的创作 Agent 完成用户需求。保留用户原始创作描述及其约束，由服务端理解需求、规划、选模型和编排生成。不要擅自扩写情节、改变对白或拆成逐镜头请求。不需要浏览器登录态或本地 session 文件。
+
+支持自然语言生成与修改、参考素材创作、连续场景与故事板、素材提案、会话续写、新项目、进度查询与批量下载。模型和具体生成能力以当前 `capabilities` 为准，不宣称支持平台尚未提供的编辑或生成模式。
 
 ## 接入
 
-本版需要平台已部署 `/openapi/` 和个人中心 Access Key 功能。它不是账号密码登录客户端；旧版网页接口不会被自动调用。
+本版需要平台已部署 `/openapi/` 和Access Key 功能。它不是账号密码登录客户端；旧版网页接口不会被自动调用。
 
-1. 用户在平台「个人中心 → Skill 接入」创建 Access Key。
+1. 用户在 https://tuoyuanai.com/plugin 的「获取 Access Key」或「头像菜单 → Access Key」创建 Access Key。
 2. 用户在运行环境配置 `TUOYUANAI_ACCESS_KEY`。不要要求用户把完整密钥发送到聊天，不要打印环境变量值。
 3. Python 3.10+，不需要额外 Python 依赖。默认服务是 `https://tuoyuanai.com`；私有或验收环境可用 `TUOYUANAI_BASE_URL` 指定 HTTPS 地址，本机回环可使用 HTTP。
 
@@ -19,7 +27,7 @@ description: Use TuoyuanAI to create or continue cloud creative sessions, upload
 
 ## 使用
 
-以下命令在本 Skill 目录运行：
+以下命令在本 Skill 目录运行。详细场景步骤见 [workflows.md](references/workflows.md)，需要上传素材、做连续场景、提案、切换项目或批量交付时读取对应章节。
 
 ```bash
 python scripts/tuoyuanai.py capabilities
@@ -41,7 +49,9 @@ python scripts/tuoyuanai.py download SESSION_ID --node-id NODE_ID --output-dir .
 - 服务端决定任务是否完成；`queued`、`running`、`waiting` 都不是完成。`waiting_user` 表示需补充信息或下一步选择，`blocked` / `canceled` 不得报告成功。
 - `query --wait` 只轮询读取，超时或退出客户端不会中止后台执行。不要把本地进程存活当作生成条件。
 - `nextSeq` 是下次 `--after-seq` 的游标；`hasMore` 为真时继续获取下一页。游标属于当前会话，不要混用。
-- `results` 读取当前画布；选择真实节点 ID 下载，不从聊天文字中猜测下载 URL。
+- `results` 读取当前画布；完成后自动下载本次交付的真实节点，可重复 `--node-id` 批量下载，不从聊天文字中猜测下载 URL。无节点参数会导出整个画布的已完成节点，包含可能存在的素材与旧版本，仅在用户需要整板导出时使用。
+- 最终同时交付本地结果文件、实际结果链接与返回的 `project_url`。未完成的部分单独说明，不将部分产物当作全部成功。
+- 新任务调用 `create` 获取新项目，继续旧任务使用原 `sessionId`，不重置或删除既有项目。
 - 网页可查看 Skill 对话、停止执行、编辑画布；继续聊天通过 Skill。客户端不能覆盖服务器聊天记录。
 
 ## 素材与生成授权
@@ -54,7 +64,7 @@ python scripts/tuoyuanai.py send SESSION_ID --message "用户的创作需求" --
 
 文件上传本身不代表授权生成媒体。默认请求只允许文字和规划。
 
-只有用户明确要求相应媒体生成，且密钥已启用媒体权限时，才加 `--allow-media`。用户只要求图片，不得扩大为视频或音频；素材可用不等于可以付费生成。不要为了展示效果擅自提交付费生成。
+只有用户明确要求相应媒体生成，且密钥已启用媒体权限时，才加 `--allow-media`。明确的生成请求已经是相应授权，不重复询问同一事项。用户只要求图片，不得扩大为视频或音频；素材可用不等于可以付费生成。不要为了展示效果擅自提交付费生成。
 
 如用户指定模型、比例、时长或创作方式，先读取 capabilities，再通过 `--settings-json` 使用当前平台支持的字段。不要自行固定模型、镜头数量、分板或时长。服务端 Agent 执行创意规划。
 
