@@ -2,9 +2,9 @@
 
 在 AI 助手中连接拓元创作平台 完成图像 视频 剧本 故事板 素材管理与导演提案
 
-通过 HTTP Remote MCP 和浏览器授权连接 无需手动配置 Access Key
+通过 HTTP Remote MCP 和浏览器授权连接
 
-> 当前为 1.0.0-rc.1 需要平台同步部署 Remote MCP 与浏览器授权接口 仓库更新不代表生产平台已上线
+> 当前为 1.0.0-rc.1 需要平台同步部署 Remote MCP 与浏览器授权接口
 
 ## 安装
 
@@ -48,7 +48,7 @@ npx skills add https://github.com/tuoyuan-ai/tuoyuanai-skill --skill tuoyuanai
 
 每位用户使用自己的拓元账户授权 客户端管理授权信息 头像菜单的已连接助手可断开连接 项目与素材不会因此删除
 
-原 Skill 的历史标签和已有项目保留 页面不再提供 Access Key 入口 新安装请使用上面的浏览器授权流程
+原 Skill 的历史标签和已有项目保留 新安装请使用上面的浏览器授权流程
 
 ## 许可
 
